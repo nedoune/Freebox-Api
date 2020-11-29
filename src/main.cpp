@@ -41,6 +41,7 @@ int main(int argc, char *argv[]){
 
         if (vm.count("help")){
             std::cout << desc << '\n';
+            return 0;
         }
         else if (vm.count("open_port")){
             bool test = true;

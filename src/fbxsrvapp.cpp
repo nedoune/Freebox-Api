@@ -42,10 +42,10 @@ Ouvre une ssession :
 
 *************************************************************************************/
 char fbxSrvApp::startSession(){
-    cout<<"Starting session on Fbx Server"<<endl;
-    cout<<" - Verifying token presence"<<endl;
+    //cout<<"Starting session on Fbx Server"<<endl;
+    //cout<<" - Verifying token presence"<<endl;
     if(this->hasToken()==-1){
-        cout<<" No token found";
+        //cout<<" No token found";
         char test_auth = this->getAuthorization();
         if(test_auth!=0){
            //cout<<endl<< "Relaunch App and valid access on freebox server"<<endl;
@@ -53,7 +53,7 @@ char fbxSrvApp::startSession(){
         }
 
     }
-    cout<<" - Reading Token"<<endl;
+    //cout<<" - Reading Token"<<endl;
     this->readToken();
 
     /*  Getting the challenge value */
@@ -139,11 +139,11 @@ Ouvre une ssession :
 char fbxSrvApp::hasToken(){
     ifstream fichier("token");
     if(fichier){
-        cout<<"     - Token found"<<endl;
+        //cout<<"     - Token found"<<endl;
         fichier.close();
         return 0;
     }
-    cout<<"     - No token found"<<endl;
+    //cout<<"     - No token found"<<endl;
     return -1;
 }
 
@@ -228,7 +228,7 @@ Récupération du token du programme
 
 *************************************************************************************/
 char fbxSrvApp::getAuthorization(){
-    cout<<"  - Getting Autorization for App"<<endl;
+    //cout<<"  - Getting Autorization for App"<<endl;
     string url = "https://mafreebox.freebox.fr/api/v8/login/authorize/";
 
     rapidjson::Document data;

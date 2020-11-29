@@ -18,6 +18,7 @@
 
 ## **Utilisation**
 ---
+`./freeboxapi --help` affiche les commandes disponibles
 ### **Ouverture de port** :
 
  - Paramètres disponibles :
