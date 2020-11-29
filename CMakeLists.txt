@@ -16,11 +16,14 @@ include_directories(${CURL_INCLUDE_DIR})
 find_package(OpenSSL REQUIRED)
 include_directories(${OPENSSL_INCLUDE_DIR})
 
+find_package(Curses REQUIRED)
+include_directories(${CURSES_INCLUDE_DIR})
+
 add_executable(freeboxapi ${SOURCES})
 target_link_libraries(freeboxapi ${CURL_LIBRARIES})
 target_link_libraries(freeboxapi ${OPENSSL_LIBRARIES})
 target_link_libraries(freeboxapi ${Boost_LIBRARIES})
-
+target_link_libraries(freeboxapi ${CURSES_LIBRARIES})
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})

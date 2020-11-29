@@ -88,6 +88,98 @@ int main(int argc, char *argv[]){
 
         }
     }
-    
+
+    // Si pas de paramètre => Menu console
+    else{
+        int menuCode,selected_item;
+        interface interface;
+        interface.launch();
+        char start_session = app.startSession();
+        if (start_session==0){
+            interface.print_message("Session ouverte");
+        }
+        else{
+            stringstream message;
+            message<<"Erreur à l'ouverture de session (code :"<<start_session<<")";
+            interface.print_message(message.str());
+        }
+
+        while (interface.run_menu()){
+                menuCode=interface.get_menuCode();
+                cout<<"Menu code : "<<menuCode<<endl;
+                selected_item=interface.get_selectedItem();
+                cout<<"Select : "<<selected_item<<endl;
+                switch(menuCode){
+                        case 0: //Menu session
+                            switch(selected_item){
+                                case 0:
+                                    interface.print_message("Ouverture de session");
+                                    start_session = app.startSession();
+                                    if (start_session==0){
+                                        interface.print_message("Session ouverte");
+                                    }
+                                    else{
+                                    stringstream message;
+                                    message<<"Erreur à l'ouverture de session (code :"<<start_session<<")";
+                                    interface.print_message(message.str());
+                                    }
+                                    break;
+                                case 1:
+                                    {interface.print_message("Fermeture de la session");
+                                    char closeSession = app.closeSession();
+                                    if (closeSession==0){
+                                        interface.print_message("Session fermee");
+                                    }
+                                    else{
+                                        stringstream message;
+                                        message<<"Erreur à la fermeture de session (code :"<<closeSession<<")";
+                                        interface.print_message(message.str());
+                                    }
+                                    }
+                                    break;
+                                case 2:
+                                    interface.print_message("Redémarrage en cours... Patientez, puis rouvrez une session");
+                                    break;
+                            }
+                        break;
+                        case 1: //Menu redirection
+                            switch(selected_item){
+                            case 0:
+                                interface.print_message("Liste des redirection");
+
+                                break;
+                            case 1:
+                                interface.print_message("Ajout de redirection");
+                                if(interface.run_addredir()){
+                                    rapidjson::Document *formValues = interface.get_formValues();
+
+                                    interface.print_message(formValues->GetObject()["src_ip"].GetString());
+                                }
+
+                                break;
+
+                            case 2:
+                                interface.print_message("Suppression de redirection");
+                            break;
+                            case 3:
+                                interface.print_message("Configuration du port");
+                                break;
+                            case 4:
+                                interface.print_message("Mise à jour port X");
+                                break;
+                            case 5:
+                                interface.print_message("Sauvegarde des redirections");
+                                break;
+                            case 6:
+                                interface.print_message("Restauration des redirections");
+                                break;
+                            }
+                        break;
+                    }
+
+
+        }
+
+    }
     return 0;
 }
