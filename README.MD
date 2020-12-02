@@ -18,7 +18,10 @@
 
 ## **Utilisation**
 ---
-`./freeboxapi --help` affiche les commandes disponibles
+### **Help :
+Linux `./freeboxapi --help` affiche les commandes disponibles
+
+Windows :  `freeboxapi.exe --help `
 ### **Ouverture de port** :
 
  - Paramètres disponibles :
@@ -33,10 +36,11 @@
  Si ils ne sont pas précisés, wan_port_start & wan_port_stop reprennent par défaut la valeur de lan port.
  Pour redirigé un port différent de lan_port vers lan_port : définir la valeur de wan_port_start (wan_port_stop prendra la même valeur).
 
-- Commande minimale : `./freeboxapi --open_port  --lan_port 80 --dest_ip 192.168.0.32 `
+- Commande minimale :
+- Linux : `./freeboxapi --open_port  --lan_port 80 --dest_ip 192.168.0.32 `
 
 ### **Fermer un port** :
- Supprime la redirection dans FreeboxOS
+ Supprime la redirection
 - `./freeboxapi --close_port  --lan_port 80`
 
 ### **Sauvegarder les redirections**
@@ -46,6 +50,20 @@
 ### **Restaurer les redirections**
  Restaure toutes les redirections de la freebox, avec leur état (actif/inactif), depuis un fichier au format JSON 
 - `./freeboxapi --load_fwdlist savefile
+
+### **Sauvegarder les baux statiques**
+ Sauvegarde toutes les baux statiques de la freebox, avec leur état (actif/inactif), dans un fichier au format JSON 
+- `./freeboxapi --save_staticdhcp savefile`
+
+### **Restaurer les baux statiques**
+ Restaure toutes les baux statiques de la freebox, depuis un fichier au format JSON 
+- `./freeboxapi --load_staticdhcp savefile`
+### **Ajouter un bail statique**
+ - `./freeboxapi --add_staticDHCP --lan_ip 192.168.0.1 --mac AA:AA:AA:AA`
+
+### **Supprimer un bail statique**
+ - `./freeboxapi --delete_staticDHCP --lan_ip 192.168.0.1`
+ou `./freeboxapi --delete_staticDHCP --mac AA:AA:AA:AA`
 
 ## **TODO**
 - Inclure DHCP (sauvegarde/restauration)

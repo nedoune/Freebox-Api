@@ -311,7 +311,7 @@ rapidjson::Document fbxSrvApp::fbxAnswer(string methode,string url,string data, 
 
 /*************************************************************************************
                                     listPortForward
-Récupère la liste des ports ouverts
+Récupère la liste des redirections
 et la stocke dans un docment rapidjson passé par référence
  -Paramètres :
     d : Document rapidjson
@@ -335,7 +335,10 @@ char fbxSrvApp::listPortForward(rapidjson::Document &d){
                                     searchPortFwdId
 Récupère l'id d'une redirection de port
  -Paramètres :
-    port : port local vers lequel s'effecutue la redirection
+    lan_port : port local vers lequel s'effecutue la redirection
+    lan_ip : ip local vers laquelle pointe la redirection
+  ou
+    wan_port : port du serveur redirigé
  -Retour:
     >0  id de la redirection
     0   Pas de redirection vers ce port
@@ -343,13 +346,33 @@ Récupère l'id d'une redirection de port
     -2  Echec de la requête pour lister toutes les redirections : Pas de retour
 
 *************************************************************************************/
-int fbxSrvApp::searchPortFwdId(int port){
+int fbxSrvApp::searchPortFwdId(int lan_port, string lan_ip){
     rapidjson::Document fwdList;
     char test = this->listPortForward(fwdList);
     if (test == 0){
         if(fwdList["success"].GetBool()){
             for (rapidjson::Value::ConstValueIterator itr = fwdList["result"].Begin(); itr != fwdList["result"].End(); ++itr){
-                if(itr->GetObject()["lan_port"].GetInt()==port){
+                if(itr->GetObject()["lan_port"].GetInt()==lan_port && itr->GetObject()["lan_ip"].GetString()==lan_ip){
+                    int id = itr->GetObject()["id"].GetInt();
+                    return id;
+                }
+            }
+
+        }
+        //Pas de redirection
+        return 0;
+    }
+    //Echec requete
+    return test;
+}
+
+int fbxSrvApp::searchPortFwdId(int wan_port){
+    rapidjson::Document fwdList;
+    char test = this->listPortForward(fwdList);
+    if (test == 0){
+        if(fwdList["success"].GetBool()){
+            for (rapidjson::Value::ConstValueIterator itr = fwdList["result"].Begin(); itr != fwdList["result"].End(); ++itr){
+                if(itr->GetObject()["wan_port_start"].GetInt()<=wan_port && itr->GetObject()["wan_port_stop"].GetInt()>=wan_port){
                     int id = itr->GetObject()["id"].GetInt();
                     return id;
                 }
@@ -380,8 +403,8 @@ Crée une redirection de port sur la freebox
     -2  Echec de la requête : Pas de retour
 
 *************************************************************************************/
-char fbxSrvApp::addPortForward(bool enable, string comment,short lan_port,short wan_port_start,
-                               short wan_port_end, string lan_ip, string protocol, string ip_source){
+char fbxSrvApp::addPortForward(bool enable, string comment,int lan_port,int wan_port_start,
+                               int wan_port_end, string lan_ip, string protocol, string ip_source){
 
     rapidjson::Document d;
     d.SetObject();
@@ -412,19 +435,42 @@ char fbxSrvApp::addPortForward(bool enable, string comment,short lan_port,short 
 
 /*************************************************************************************
                                     deletePortForward
-Crée une redirection de port sur la freebox
+Supprime une redirection de port sur la freebox
  -Paramètres :
-    port : port local vers lequel s'effecutue la redirection
+    lan_port : port local vers lequel s'effecutue la redirection
+    lan_ip : ip local vers laquelle pointe la redirection
+  ou
+    wan_port : port du serveur redirigé
  -Retour:
     0   Pas de redirection vers ce port
-    -1  Echec de la requête pour lister toutes les redirections : Retour négatif
-    -2  Echec de la requête pour lister toutes les redirections : Pas de retour
+    -1  Echec de la requête pour trouver l'id de la redirection : Retour négatif
+    -2  Echec de la requête pour trouver l'id de la redirection : Pas de retour
     -3  Echec de la requête de suppression de la redirection : Retour négatif
     -4  Echec de la requête de suppression de la redirection : Pas de retour
 
 *************************************************************************************/
-char fbxSrvApp::deletePortForward(int port){
-    int id = searchPortFwdId(port);
+char fbxSrvApp::deletePortForward(int lan_port,string lan_ip){
+    int id = searchPortFwdId(lan_port, lan_ip);
+    //cout<<"Id :"<<id<<endl;
+    if(id>0){
+        string url="https://mafreebox.freebox.fr/api/v8/fw/redir/" + to_string(id);
+        rapidjson::Document answer=fbxAnswer("DELETE",url,"", this->sessionToken);
+        if(answer.HasMember("succes")){
+            if(answer["success"].GetBool()){
+                return 0;
+            }
+            else{
+                return -3;
+            }
+        }
+        return -4;
+    }
+    return id;
+
+}
+
+char fbxSrvApp::deletePortForward(int wan_port){
+    int id = searchPortFwdId(wan_port);
     //cout<<"Id :"<<id<<endl;
     if(id>0){
         string url="https://mafreebox.freebox.fr/api/v8/fw/redir/" + to_string(id);
@@ -463,15 +509,12 @@ char fbxSrvApp::savePortForward(string output){
     if(test == 0){
         rapidjson::Document d;
         d.SetObject();
-
+        rapidjson::Value newfwd;
+        newfwd.SetObject();
+        char* id=NULL;
         if(fwdList["success"].GetBool()){
             for (rapidjson::Value::ConstValueIterator itr = fwdList["result"].Begin(); itr != fwdList["result"].End(); ++itr){
-                rapidjson::Value newfwd;
-                newfwd.SetObject();
-
-                char* id=NULL;
                 inttochar(itr->GetObject()["id"].GetInt(),id);
-
                 newfwd.AddMember("enabled",itr->GetObject()["enabled"].GetBool(),d.GetAllocator());
                 newfwd.AddMember("comment",rapidjson::StringRef(itr->GetObject()["comment"].GetString()),d.GetAllocator());
                 newfwd.AddMember("lan_port",itr->GetObject()["lan_port"].GetInt(),d.GetAllocator());
@@ -480,9 +523,10 @@ char fbxSrvApp::savePortForward(string output){
                 newfwd.AddMember("lan_ip",rapidjson::StringRef(itr->GetObject()["lan_ip"].GetString()),d.GetAllocator());
                 newfwd.AddMember("ip_proto",rapidjson::StringRef(itr->GetObject()["ip_proto"].GetString()),d.GetAllocator());
                 newfwd.AddMember("src_ip",rapidjson::StringRef(itr->GetObject()["src_ip"].GetString()),d.GetAllocator());
-                d.AddMember(rapidjson::StringRef(id),newfwd,d.GetAllocator());
-                //cout<<" "<<id_string.c_str()<<" "<<rapidjson::StringRef(id_string.c_str())<<endl;
+                d.AddMember(rapidjson::StringRef((char*)id),newfwd,d.GetAllocator());
+                newfwd.SetObject();
             }
+            free(id); id=NULL;
             ofstream file(output);
             if (file){
                 rapidjson::OStreamWrapper osw(file);
@@ -538,7 +582,311 @@ char fbxSrvApp::loadPortForward(string input){
     return -3;
 }
 
+/*************************************************************************************
+                                    updatePortForward
+Mets à jour l'état actif/inactif d'une redirection de port sur la freebox
+ -Paramètres :
+    lan_port : port local vers lequel s'effecutue la redirection
+    lan_ip : ip local vers laquelle pointe la redirection
+    enable : true = actif / false = inactif
+  ou
+    wan_port : port du serveur redirigé
+    enable : true = actif / false = inactif
 
+ -Retour:
+    0   Pas de redirection vers ce port
+    -1  Echec de la requête pour trouver l'id de la redirection : Retour négatif
+    -2  Echec de la requête pour trouver l'id de la redirection : Pas de retour
+    -3  Echec de la requête de suppression de la redirection : Retour négatif
+    -4  Echec de la requête de suppression de la redirection : Pas de retour
+
+*************************************************************************************/
+char fbxSrvApp::updatePortForward(int lan_port, string lan_ip, bool enable){
+    int id = searchPortFwdId(lan_port,lan_ip);
+    if(id>0){
+        rapidjson::Document d;
+        d.SetObject();
+        d.AddMember("lan_port",lan_port,d.GetAllocator());
+        d.AddMember("enabled",enable,d.GetAllocator());
+
+        rapidjson::StringBuffer buffer;
+        rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+        d.Accept(writer);
+        string url="https://mafreebox.freebox.fr/api/v8/fw/redir/" + to_string(id);
+        rapidjson::Document answer=fbxAnswer("PUT",url.c_str(),buffer.GetString(), this->sessionToken);
+        if(answer.HasMember("success")){
+            if(answer["success"].GetBool()){
+                return 0;
+            }
+            return -3;
+        }
+        return  -4;
+    }
+    return id;
+}
+
+char fbxSrvApp::updatePortForward(int wan_port, bool enable){
+    int id = searchPortFwdId(wan_port);
+    if(id>0){
+        rapidjson::Document d;
+        d.SetObject();
+        d.AddMember("enabled",enable,d.GetAllocator());
+
+        rapidjson::StringBuffer buffer;
+        rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+        d.Accept(writer);
+        string url="https://mafreebox.freebox.fr/api/v8/fw/redir/" + to_string(id);
+        rapidjson::Document answer=fbxAnswer("PUT",url.c_str(),buffer.GetString(), this->sessionToken);
+        if(answer.HasMember("success")){
+            if(answer["success"].GetBool()){
+                return 0;
+            }
+            return -3;
+        }
+        return  -4;
+    }
+    return id;
+}
+
+/*************************************************************************************
+                                    listStaticDHCP
+Récupère la liste des tous les baux statiques
+et la stocke dans un document rapidjson passé par référence
+ -Paramètres :
+    d : Document rapidjson
+ -Retour:
+    0   Pas d'erreur
+    -1  Echec de la requête : Retour négatif
+    -2  Echec de la requête : Pas de retour
+
+*************************************************************************************/
+char fbxSrvApp::listStaticDHCP(rapidjson::Document &d){
+    d = fbxAnswer("GET","https://mafreebox.freebox.fr/api/v8/dhcp/static_lease/","", this->sessionToken);
+    if (d.HasMember("success")){
+        if (d["success"].GetBool()){
+            return 0;
+        }
+    }
+    return -1;
+}
+
+/*************************************************************************************
+                                    saveStaticDHCP
+Crée un fichier JSON listant tous les baux statiques de la freebox
+Le fichier contient uniquement les informations nécessaires
+à la restauration
+ -Paramètres :
+    output : fichier de sortie
+ -Retour:
+    0   Pas d'erreur
+    -1  Echec de la requête pour lister tous les baux statiques : Retour négatif
+    -2  Echec de la requête pour lister tous les baux statiques : Pas de retour
+    -3  Erreur de création du fichier
+
+*************************************************************************************/
+char fbxSrvApp::saveStaticDHCP(string output){
+    rapidjson::Document dhcpList;
+    char test = this->listStaticDHCP(dhcpList);
+    if(test == 0){
+        rapidjson::Document d;
+        d.SetObject();
+        rapidjson::Value newdhcp;
+        newdhcp.SetObject();
+        
+        if(dhcpList["success"].GetBool()){
+            for (rapidjson::Value::ConstValueIterator itr = dhcpList["result"].Begin(); itr != dhcpList["result"].End(); ++itr){
+                
+                newdhcp.AddMember("ip",rapidjson::StringRef(itr->GetObject()["ip"].GetString()),d.GetAllocator());
+                newdhcp.AddMember("mac",rapidjson::StringRef(itr->GetObject()["mac"].GetString()),d.GetAllocator());
+                newdhcp.AddMember("comment",rapidjson::StringRef(itr->GetObject()["comment"].GetString()),d.GetAllocator());
+                
+                d.AddMember(rapidjson::StringRef(itr->GetObject()["id"].GetString()),newdhcp,d.GetAllocator());
+
+                newdhcp.SetObject();                
+            }
+            ofstream file(output);
+            if (file){
+                rapidjson::OStreamWrapper osw(file);
+
+                rapidjson::PrettyWriter<rapidjson::OStreamWrapper> writer(osw);
+                d.Accept(writer);
+                file.close();
+                return 0;
+            }
+            return -3;
+        }
+    }
+    return test;
+}
+
+/*************************************************************************************
+                                    loadStaticDHCP
+Restaure toutes les redirections de port contenues dans le fichier JSON créé par saveStaticDHCP
+
+ -Paramètres :
+    input : fichier Json contenant toutes les redirections à restaurer
+ -Retour:
+    0   Pas de redirection vers ce port
+    -1  Echec d'une des requêtes de création de redirection: Retour négatif
+    -2  Echec d'une des requêtes de création de redirection: : Pas de retour
+    -3  Erreur d'ouverture du fichier
+
+*************************************************************************************/
+char fbxSrvApp::loadStaticDHCP(string input){
+    ifstream file(input);
+    if(file){
+        rapidjson::Document d;
+        rapidjson::IStreamWrapper isw(file);
+        d.ParseStream(isw);
+        for (rapidjson::Value::ConstMemberIterator itr = d.MemberBegin();itr != d.MemberEnd(); ++itr)
+        {
+            rapidjson::StringBuffer buffer;
+            rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+            itr->value.Accept(writer);
+
+            rapidjson::Document answer=fbxAnswer("POST","https://mafreebox.freebox.fr/api/v8/dhcp/static_lease/",buffer.GetString(), this->sessionToken);
+            if(answer.HasMember("success")){
+                if(!answer["success"].GetBool()){
+                    return -1;
+                }
+            }
+            else{
+                return -2;
+            }
+        }
+        return 0;
+    }
+    return -3;
+}
+
+/*************************************************************************************
+                                    addStaticDHCP
+Crée un bail statique, pour une adresse MAC, sur la freebox
+ -Paramètres :
+    lan_ip : ip a affecter à la machine
+    mac : adresse de la machine 
+    comment : commentaire
+
+ -Retour:
+    0   Pas d'erreur
+    -1  Echec de la requête : Retour négatif
+    -2  Echec de la requête : Pas de retour
+
+*************************************************************************************/
+char fbxSrvApp::addStaticDHCP(string lan_ip, string mac, string comment){
+
+    rapidjson::Document d;
+    d.SetObject();
+    d.AddMember("lan_ip",rapidjson::StringRef(lan_ip.c_str()),d.GetAllocator());
+    d.AddMember("mac",rapidjson::StringRef(mac.c_str()),d.GetAllocator());
+    d.AddMember("comment",rapidjson::StringRef(comment.c_str()),d.GetAllocator());
+
+    rapidjson::StringBuffer buffer;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+    d.Accept(writer);
+    rapidjson::Document answer=fbxAnswer("POST","https://mafreebox.freebox.fr/api/v8/dhcp/static_lease/",buffer.GetString(), this->sessionToken);
+    if(answer.HasMember("success")){
+        if(answer["success"].GetBool()){
+            return 0;
+        }
+        else{
+            return -1;
+        }
+    }
+    return -2;
+}
+
+/*************************************************************************************
+                                    deleteStaticDHCP
+Crée une redirection de port sur la freebox
+ -Paramètres :
+    addr : adresse mac ou adresse IP du bail statique
+ -Retour:
+    0   Pas de bail pour cette adresse
+    -1  Echec de la requête pour trouver l'id du bail : Retour négatif
+    -2  Echec de la requête pour trouver l'id du bail : Pas de retour
+    -3  Echec de la requête de suppression du bail : Retour négatif
+    -4  Echec de la requête de suppression du bail : Pas de retour
+
+*************************************************************************************/
+char fbxSrvApp::deleteStaticDHCP(string addr){
+    string id; 
+    char test= searchStaticDHCPId(addr,id);
+    //cout<<"Id :"<<id<<endl;
+    if(test>0){
+        string url="https://mafreebox.freebox.fr/api/v8/dhcp/static_lease/" + id;
+        rapidjson::Document answer=fbxAnswer("DELETE",url,"", this->sessionToken);
+        if(answer.HasMember("succes")){
+            if(answer["success"].GetBool()){
+                return 0;
+            }
+            else{
+                return -3;
+            }
+        }
+        return -4;
+    }
+    return test;
+
+}
+
+/*************************************************************************************
+                                    searchStaticDHCPId
+Récupère l'id d'un bail static
+ -Paramètres :
+    addr : adresse mac ou adresse IP du bail statique
+    id : vairiable passée par référence pour récupérer l'id du bail
+ -Retour:
+    1  id trouvé et passé à la référence en paramètre
+    0   Pas de bail pour cette adresse
+    -1  Echec de la requête pour lister tous les baux : Retour négatif
+    -2  Echec de la requête pour lister tous les baux : Pas de retour
+
+*************************************************************************************/
+char fbxSrvApp::searchStaticDHCPId(string addr, string &id){
+    rapidjson::Document dhcpList;
+    char test = this->listStaticDHCP(dhcpList);
+    if (test == 0){
+        if(dhcpList["success"].GetBool()){
+            for (rapidjson::Value::ConstValueIterator itr = dhcpList["result"].Begin(); itr != dhcpList["result"].End(); ++itr){
+                if(itr->GetObject()["lan_ip"].GetString()==addr || itr->GetObject()["mac"].GetString()==addr){
+                    id = itr->GetObject()["id"].GetString();
+                    return 1;
+                }
+            }
+
+        }
+        //Pas de redirection
+        return 0;
+    }
+    //Echec requete
+    return test;
+}
+
+
+/*************************************************************************************
+                                    reboot
+Redemarre le freebox serveur
+
+ -Retour:
+    0   Pas d'erreur
+    -1  Echec de la requêtes : Retour négatif
+    -2  Echaec de la requête : Pas de retour
+
+*************************************************************************************/
+char fbxSrvApp::reboot(){
+    string url = "https://mafreebox.freebox.fr/api/v8/system/reboot/";
+    rapidjson::Document answer= fbxAnswer("POST",url);
+    if(answer.HasMember("success")){
+        if(answer["success"].GetBool()){
+            return 0;
+        }
+        else{
+            return -1;
+        }
+    }
+    return -2;
+}
 
 
 

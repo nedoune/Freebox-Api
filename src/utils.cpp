@@ -43,7 +43,7 @@ void inttochar(int i, char* &chaine){
     stringstream str;
     str << i;
     string s = str.str();
-    chaine=(char*)malloc(sizeof(char)*s.size()+1);
+    chaine=(char*)realloc(chaine,sizeof(char)*s.size()+1);
     stringtochar(s,chaine);
     chaine[s.size()]=0x00;
 }

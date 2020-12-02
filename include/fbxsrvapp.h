@@ -47,22 +47,27 @@ class fbxSrvApp
 
         rapidjson::Document listPlayer();
         /* Port Forward */
-        char addPortForward(bool enable, string comment,short lan_port,short wan_port_start,short wan_port_end, string lan_ip, string protocol, string ip_source);
-        char deletePortForward(int port);
+        char addPortForward(bool enable, string comment,int lan_port,int wan_port_start,int wan_port_end, string lan_ip, string protocol, string ip_source);
+        char deletePortForward(int lan_port, string lan_ip);
+        char deletePortForward(int wan_port);
         char savePortForward(string output);
         char loadPortForward(string input);
-        char updatePortForward(int port);
-        char getPortForward(int port);
+        char updatePortForward(int lan_port,string lan_ip, bool enable);
+        char updatePortForward(int wan_port,bool enable);
+//        rapidjson::Document getPortForward();
+//        rapidjson::Document getPortForward(int port);
 
         /* DHCP */
 
-//        char saveDHCP(string output);
-//        char loadDHCP(string input);
-//        char addDHCP();
-//        char deleteDHCP(int port);
-//        char updateDHCP(int port);
-//        char getDHCP(int port);
+        char saveStaticDHCP(string output);
+        char loadStaticDHCP(string input);
+        char addStaticDHCP(string lan_ip, string mac, string comment);
+        char deleteStaticDHCP(string addr); 
+//        char updateDHCP(string mac);
+//        rapidjson::Document getStaticDHCP();
+//        rapidjson::Document getStaticDHCP(string addr);
 
+        char reboot();
 
     protected:
 
@@ -85,8 +90,11 @@ class fbxSrvApp
         rapidjson::Document fbxAnswer(string methode,string url,string data="", string auth="");
 
         /* Port Forward */
-        int searchPortFwdId(int port);
+        int searchPortFwdId(int lan_port,string lan_ip);
+        int searchPortFwdId(int wan_port);
+        char searchStaticDHCPId(string addr, string &id);
         char listPortForward(rapidjson::Document &d);
+        char listStaticDHCP(rapidjson::Document &d);
 };
 
 #endif // fbxSrvApp_H
